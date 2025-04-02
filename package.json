@@ -1,5 +1,5 @@
 {
-  "name": "@tatumio/tatum-kms",
+  "name": "@inabit-com/tatum-kms",
   "version": "8.0.0",
   "description": "Tatum KMS - Key Management System for Tatum-powered apps.",
   "main": "dist/index.js",
@@ -33,7 +33,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tatumio/tatum-kms.git"
+    "url": "git+https://github.com/in-a-bit/tatum-kms-inabit.git"
   },
   "keywords": [
     "Tatum",
