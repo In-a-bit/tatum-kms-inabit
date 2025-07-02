@@ -8,7 +8,6 @@ import { TatumTronSDK } from '@tatumio/tron'
 import { TatumXlmSDK } from '@tatumio/xlm'
 import { TatumXrpSDK } from '@tatumio/xrp'
 import { AxiosInstance } from 'axios'
-import CryptoJS from 'crypto-js'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import _ from 'lodash'
 import { homedir } from 'os'
@@ -31,8 +30,6 @@ import { utils } from './utils'
 import semver from 'semver'
 
 import { version } from '../package.json'
-
-const { AES } = CryptoJS
 
 const ensurePathExists = (path: string) => {
   const dir = dirname(path)
@@ -114,7 +111,7 @@ export const exportWallets = (pwd: string, path?: string) => {
     console.error(JSON.stringify({ error: `No such wallet file.` }, null, 2))
     return
   }
-  console.log(JSON.stringify(JSON.parse(AES.decrypt(data, pwd).toString(CryptoJS.enc.Utf8)), null, 2))
+  console.log(JSON.stringify(JSON.parse(data), null, 2))
 }
 
 export const getManagedWallets = (pwd: string, chain: string, testnet: boolean, path?: string) => {
@@ -127,7 +124,7 @@ export const getManagedWallets = (pwd: string, chain: string, testnet: boolean, 
   if (!data?.length) {
     return []
   }
-  const wallets = JSON.parse(AES.decrypt(data, pwd).toString(CryptoJS.enc.Utf8))
+  const wallets = JSON.parse(data)
   const keys = []
   for (const walletsKey in wallets) {
     if (chain === wallets[walletsKey].chain && testnet === wallets[walletsKey].testnet) {
@@ -179,14 +176,14 @@ export const storeWallet = async (
   const entry = { [key]: { ...wallet, chain, testnet } }
   if (!existsSync(pathToWallet)) {
     ensurePathExists(pathToWallet)
-    writeFileSync(pathToWallet, AES.encrypt(JSON.stringify(entry), pwd).toString())
+    writeFileSync(pathToWallet, JSON.stringify(entry))
   } else {
     const data = readFileSync(pathToWallet, { encoding: 'utf8' })
     let walletData = entry
     if (data?.length > 0) {
-      walletData = { ...walletData, ...JSON.parse(AES.decrypt(data, pwd).toString(CryptoJS.enc.Utf8)) }
+      walletData = { ...walletData, ...JSON.parse(data) }
     }
-    writeFileSync(pathToWallet, AES.encrypt(JSON.stringify(walletData), pwd).toString())
+    writeFileSync(pathToWallet, JSON.stringify(walletData))
   }
   const value: StoreWalletValue = { signatureId: key }
   if (wallet.address) {
@@ -214,14 +211,14 @@ export const storePrivateKey = async (
   const entry = { [key]: { privateKey, chain, testnet } }
   if (!existsSync(pathToWallet)) {
     ensurePathExists(pathToWallet)
-    writeFileSync(pathToWallet, AES.encrypt(JSON.stringify(entry), pwd).toString())
+    writeFileSync(pathToWallet, JSON.stringify(entry))
   } else {
     const data = readFileSync(pathToWallet, { encoding: 'utf8' })
     let walletData = entry
     if (data?.length > 0) {
-      walletData = { ...walletData, ...JSON.parse(AES.decrypt(data, pwd).toString(CryptoJS.enc.Utf8)) }
+      walletData = { ...walletData, ...JSON.parse(data) }
     }
-    writeFileSync(pathToWallet, AES.encrypt(JSON.stringify(walletData), pwd).toString())
+    writeFileSync(pathToWallet, JSON.stringify(walletData))
   }
   if (print) {
     console.log(JSON.stringify({ signatureId: key }, null, 2))
@@ -258,11 +255,10 @@ export const generateManagedPrivateKeyBatch = async (
 }
 
 export const getWalletFromPath = (errorMessage: string, path?: string, pwd?: string) => {
-  if (_.isNil(path) || _.isNil(pwd)) {
-    console.error('No path or password entered')
+  if (_.isNil(path)) {
+    console.error('No path entered')
     return
   }
-  const password = pwd ?? Config.getValue(ConfigOption.KMS_PASSWORD)
   const pathToWallet = path || homedir() + '/.tatumrc/wallet.dat'
   if (!existsSync(pathToWallet)) {
     console.error(errorMessage)
@@ -273,7 +269,7 @@ export const getWalletFromPath = (errorMessage: string, path?: string, pwd?: str
     console.error(errorMessage)
     return
   }
-  return JSON.parse(AES.decrypt(data, password).toString(CryptoJS.enc.Utf8))
+  return JSON.parse(data)
 }
 
 // TODO: validate all properties from wallet and create a type or interface to replace any bellow
@@ -320,14 +316,13 @@ export const getWallet = async (id: string, pwd: string, path?: string, print = 
     }
     return data[id]
   } catch (e) {
-    console.error(JSON.stringify({ error: `Wrong password.` }, null, 2))
+    console.error(JSON.stringify({ error: `Failed to read wallet data.` }, null, 2))
     console.debug(e)
     return
   }
 }
 
 export const getPrivateKey = async (id: string, index: string, path?: string, password?: string, print = true) => {
-  const pwd = password ?? Config.getValue(ConfigOption.KMS_PASSWORD)
   const pathToWallet = path || homedir() + '/.tatumrc/wallet.dat'
   if (!existsSync(pathToWallet)) {
     console.error(JSON.stringify({ error: `No such wallet for signatureId '${id}'.` }, null, 2))
@@ -338,7 +333,7 @@ export const getPrivateKey = async (id: string, index: string, path?: string, pa
     console.error(JSON.stringify({ error: `No such wallet for signatureId '${id}'.` }, null, 2))
     return null
   }
-  const wallet = JSON.parse(AES.decrypt(data, pwd).toString(CryptoJS.enc.Utf8))
+  const wallet = JSON.parse(data)
   if (!wallet[id]) {
     console.error(JSON.stringify({ error: `No such wallet for signatureId '${id}'.` }, null, 2))
     return null
@@ -355,7 +350,6 @@ export const getPrivateKey = async (id: string, index: string, path?: string, pa
 }
 
 export const getAddress = async (id: string, index: string, path?: string, pwd?: string, print = true) => {
-  const password = pwd ?? Config.getValue(ConfigOption.KMS_PASSWORD)
   const pathToWallet = path || homedir() + '/.tatumrc/wallet.dat'
   if (!existsSync(pathToWallet)) {
     console.error(JSON.stringify({ error: `No such wallet for signatureId '${id}'.` }, null, 2))
@@ -366,7 +360,7 @@ export const getAddress = async (id: string, index: string, path?: string, pwd?:
     console.error(JSON.stringify({ error: `No such wallet for signatureId '${id}'.` }, null, 2))
     return null
   }
-  const wallet = JSON.parse(AES.decrypt(data, password).toString(CryptoJS.enc.Utf8))
+  const wallet = JSON.parse(data)
   if (!wallet[id]) {
     console.error(JSON.stringify({ error: `No such wallet for signatureId '${id}'.` }, null, 2))
     return null
@@ -407,9 +401,9 @@ export const removeWallet = async (id: string, pwd: string, path?: string) => {
     console.error(JSON.stringify({ error: `No such wallet for signatureId '${id}'.` }, null, 2))
     return
   }
-  const wallet = JSON.parse(AES.decrypt(data, pwd).toString(CryptoJS.enc.Utf8))
+  const wallet = JSON.parse(data)
   delete wallet[id]
-  writeFileSync(pathToWallet, AES.encrypt(JSON.stringify(wallet), pwd).toString())
+  writeFileSync(pathToWallet, JSON.stringify(wallet))
 }
 
 function parseWalletStoreName(pwdType: PasswordType): WalletStoreType {
